@@ -36,7 +36,7 @@ async function runOnchainos(args: string[]): Promise<string> {
 }
 
 async function rpc(method: string, params: unknown): Promise<any> {
-  const res = await fetch(`http://localhost:${config.port}/`, {
+  const res = await fetch(config.publicUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: method, method, params }),
