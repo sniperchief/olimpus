@@ -1,0 +1,57 @@
+{
+  "info": {
+    "name": "Olimpus A2A",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "taskId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Agent Card",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/.well-known/agent-card.json"
+      }
+    },
+    {
+      "name": "message/send",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.result && body.result.id) {",
+              "    pm.collectionVariables.set('taskId', body.result.id);",
+              "    console.log('Saved taskId:', body.result.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\", \"id\": \"1\", \"method\": \"message/send\",\n  \"params\": {\n    \"message\": {\n      \"role\": \"user\", \"messageId\": \"msg-1\",\n      \"parts\": [{\"kind\": \"data\", \"data\": {\n        \"idea\": \"A subscription box for artisanal coffee\",\n        \"targetAudience\": \"home baristas\",\n        \"primaryGoal\": \"validate product-market fit and launch an MVP\"\n      }}]\n    }\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "tasks/get",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\", \"id\": \"2\", \"method\": \"tasks/get\",\n  \"params\": {\"id\": \"{{taskId}}\"}\n}"
+        }
+      }
+    }
+  ]
+}
