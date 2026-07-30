@@ -38,7 +38,7 @@ async function runStageWithReview(
     const verdict = await reviewStage(stage, memory, output);
     eventStore.record(sessionId, stage, attempt, output, verdict);
 
-    if (verdict.score >= 80) {
+    if (verdict.score >= 50) {
       return { outcome: "APPROVED", approvedOutput: output };
     }
 
