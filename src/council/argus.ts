@@ -64,5 +64,8 @@ export async function reviewStage(
   return {
     ...raw,
     score: Math.max(0, Math.min(100, Math.round(raw.score))),
+    strengths: Array.isArray(raw.strengths) ? raw.strengths : [],
+    weaknesses: Array.isArray(raw.weaknesses) ? raw.weaknesses : [],
+    recommendations: Array.isArray(raw.recommendations) ? raw.recommendations : [],
   };
 }
