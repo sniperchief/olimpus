@@ -11,7 +11,9 @@ const port = Number(process.env.PORT ?? 8080);
 export const config = {
   port,
   modelId: process.env.MODEL_ID ?? "claude-haiku-4-5",
-  anthropicApiKey: required("ANTHROPIC_API_KEY"),
+  get anthropicApiKey(): string {
+    return required("ANTHROPIC_API_KEY");
+  },
   maxRevisionAttempts: 3,
   dbPath: process.env.DB_PATH ?? "data/olimpus.db",
   publicUrl: process.env.PUBLIC_URL ?? `http://localhost:${port}/`,

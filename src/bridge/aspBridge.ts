@@ -4,8 +4,8 @@ import { writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { config } from "../config.js";
-import { parseTaskDescription } from "./parseTaskDescription.js";
 import { formatWorkspaceAsMarkdown } from "./formatWorkspace.js";
+import type { FounderInput } from "../memory/types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,21 +57,27 @@ async function sleep(ms: number): Promise<void> {
  * Run this once the ASP session's `next-action` script indicates the job is
  * accepted and work should begin — see task-asp.md: "deliver is gated by job_accepted".
  *
- * Usage: node dist/bridge/aspBridge.js <jobId> <aspAgentId>
+ * The founder input (idea / targetAudience / primaryGoal) must already be extracted by
+ * the caller — this script does not read raw task text or call an LLM itself, so it
+ * needs no Anthropic API key of its own.
+ *
+ * Usage: node dist/bridge/aspBridge.js <jobId> <aspAgentId> <founderInputJson>
  */
 async function main() {
-  const [jobId, aspAgentId] = process.argv.slice(2);
-  if (!jobId || !aspAgentId) {
-    console.error("Usage: bridge <jobId> <aspAgentId>");
+  const [jobId, aspAgentId, founderInputJson] = process.argv.slice(2);
+  if (!jobId || !aspAgentId || !founderInputJson) {
+    console.error("Usage: bridge <jobId> <aspAgentId> <founderInputJson>");
     process.exit(1);
   }
 
-  console.log(`[bridge] Fetching task context for job ${jobId}...`);
-  const rawContext = await runOnchainos(["agent", "common", "context", jobId, "--role", "asp", "--agent-id", aspAgentId]);
-
-  console.log("[bridge] Extracting founder input from task context...");
-  const founderInput = await parseTaskDescription(rawContext);
-  console.log("[bridge] Parsed founder input:", founderInput);
+  let founderInput: FounderInput;
+  try {
+    founderInput = JSON.parse(founderInputJson);
+  } catch (err) {
+    console.error("[bridge] Failed to parse founderInputJson argument:", err);
+    process.exit(1);
+  }
+  console.log("[bridge] Using founder input:", founderInput);
 
   console.log("[bridge] Submitting to Olimpus Council via message/send...");
   const task = await rpc("message/send", {
