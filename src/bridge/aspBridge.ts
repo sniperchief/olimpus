@@ -50,6 +50,37 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const STAGE_LABELS: Record<string, string> = {
+  athena: "strategy",
+  hermes: "market analysis",
+  apollo: "brand",
+  themis: "business model & pricing",
+  ares: "go-to-market plan",
+  hephaestus: "product roadmap",
+  zeus: "investor pitch",
+};
+
+/**
+ * Best-effort progress notification to the founder. Never throws — a failed
+ * notification must not abort a fulfillment that is otherwise on track.
+ */
+async function notifyProgress(jobId: string, founderAgentId: string, stage: string): Promise<void> {
+  const label = STAGE_LABELS[stage] ?? stage;
+  try {
+    await execFileAsync("okx-a2a", [
+      "xmtp-send",
+      "--job-id",
+      jobId,
+      "--to-agent-id",
+      founderAgentId,
+      "--message",
+      `Update: now working on the ${label} section of your Startup Workspace.`,
+    ]);
+  } catch (err) {
+    console.error(`[bridge] Progress notification failed (non-fatal): ${(err as Error).message}`);
+  }
+}
+
 /**
  * Bridges an OKX AI Task Marketplace job (ASP role, already `job_accepted`) into
  * Olimpus's own headless A2A engine, then delivers the result back on-chain.
@@ -61,12 +92,17 @@ async function sleep(ms: number): Promise<void> {
  * the caller — this script does not read raw task text or call an LLM itself, so it
  * needs no Anthropic API key of its own.
  *
- * Usage: node dist/bridge/aspBridge.js <jobId> <aspAgentId> <founderInputJson>
+ * The optional 4th argument (founderAgentId) enables best-effort progress notifications
+ * to the founder via XMTP while the Council pipeline runs, so a long-running job doesn't
+ * look indistinguishable from a stuck/crashed one from the outside. Omit it to skip
+ * progress notifications entirely (fulfillment still proceeds normally either way).
+ *
+ * Usage: node dist/bridge/aspBridge.js <jobId> <aspAgentId> <founderInputJson> [founderAgentId]
  */
 async function main() {
-  const [jobId, aspAgentId, founderInputJson] = process.argv.slice(2);
+  const [jobId, aspAgentId, founderInputJson, founderAgentId] = process.argv.slice(2);
   if (!jobId || !aspAgentId || !founderInputJson) {
-    console.error("Usage: bridge <jobId> <aspAgentId> <founderInputJson>");
+    console.error("Usage: bridge <jobId> <aspAgentId> <founderInputJson> [founderAgentId]");
     process.exit(1);
   }
 
@@ -92,11 +128,17 @@ async function main() {
 
   const deadline = Date.now() + MAX_WAIT_MS;
   let finalTask: any;
+  let lastNotifiedStage: string | null = null;
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
     finalTask = await rpc("tasks/get", { id: taskId });
     const state = finalTask.status.state;
-    console.log(`[bridge] Olimpus task ${taskId} status: ${state}`);
+    const currentStage = finalTask.status.currentStage as string | undefined;
+    console.log(`[bridge] Olimpus task ${taskId} status: ${state}${currentStage ? ` (stage: ${currentStage})` : ""}`);
+    if (founderAgentId && currentStage && currentStage !== lastNotifiedStage) {
+      lastNotifiedStage = currentStage;
+      await notifyProgress(jobId, founderAgentId, currentStage);
+    }
     if (state === "completed" || state === "failed") break;
   }
 

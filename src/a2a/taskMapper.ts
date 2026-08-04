@@ -20,6 +20,7 @@ export function sessionToTask(session: SessionRow, stageRuns: StageRunRow[]) {
     status: {
       state,
       timestamp: session.updated_at,
+      ...(state === "working" ? { currentStage: session.current_stage } : {}),
       ...(session.error_message ? { message: session.error_message } : {}),
     },
     history: [],
